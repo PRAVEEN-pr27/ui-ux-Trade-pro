@@ -16,6 +16,15 @@ import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 // import Router from "next/navigation";
 import { useRouter } from "next/navigation";
+import { useEffect } from 'react';
+import { StockData } from '../lib/types';
+import { generateRandomStockData } from '../lib/data';
+import { StockCard } from '../components/ui/StockCard';
+import { Watchlist } from '../components/ui/Watchlist';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import SentimentAnalysis from "@/components/ui/SentimentAnalysis";
+import AnalyticsDashboard from "@/components/ui/AnalyticsDashboard";
+
 const Animatedsection = ({ children }:any) => {
   const ref = useRef(null);
   const isinview = useInView(ref, { once: true, amount: 0.3 });
@@ -78,6 +87,8 @@ const FeatureBox = ({ icon, title, description, delay }: any) => {
 export default function Home() {
   const router = useRouter();
   const containeref = useRef(null);
+  const [stocks, setStocks] = useState<StockData[]>([]);
+  const [watchlist, setWatchlist] = useState<StockData[]>([]);
   const tradingFeatures = [
     {
       icon: <Globe size={32} />,
@@ -116,6 +127,46 @@ export default function Home() {
         "Enhance your trading skills with our extensive library of educational resources and webinars.",
     },
   ];
+
+  useEffect(() => {
+    // Initial data load
+    setStocks(generateRandomStockData());
+
+    // Update prices every 5 seconds
+    const interval = setInterval(() => {
+      setStocks(prevStocks => 
+        prevStocks.map(stock => ({
+          ...stock,
+          price: Math.random() * 1000 + 100,
+          change: Number((Math.random() * 10 - 5).toFixed(2))
+        }))
+      );
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update watchlist when stock prices change
+  useEffect(() => {
+    setWatchlist(prevWatchlist => 
+      prevWatchlist.map(watchedStock => {
+        const updatedStock = stocks.find(stock => stock.id === watchedStock.id);
+        return updatedStock || watchedStock;
+      })
+    );
+  }, [stocks]);
+
+  const addToWatchlist = (stock: StockData) => {
+    if (!watchlist.some(item => item.id === stock.id)) {
+      setWatchlist([...watchlist, stock]);
+    }
+  };
+
+  const removeFromWatchlist = (id: string) => {
+    setWatchlist(watchlist.filter(stock => stock.id !== id));
+  };
+
+  
 
   const [ismenuopen, setismenuopen] = useState(false);
   return (
@@ -386,6 +437,34 @@ export default function Home() {
             </motion.button>
           </div>
         </Animatedsection>
+
+        <div className="flex gap-4">
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle text-gray-900>Available Stocks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stocks.map(stock => (
+                <StockCard
+                  key={stock.id}
+                  stock={stock}
+                  onAddToWatchlist={addToWatchlist}
+                  isWatched={watchlist.some(item => item.id === stock.id)}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Watchlist
+          stocks={watchlist}
+          onRemoveFromWatchlist={removeFromWatchlist}
+        />
+      </div>
+      <SentimentAnalysis />
+      <AnalyticsDashboard />
+
       </main>
     </div>
   );
